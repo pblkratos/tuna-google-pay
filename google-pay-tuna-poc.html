@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POC - Google Pay via Tuna</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .info-box {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .info-box p {
+            color: #555;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .info-box code {
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        #googlePayButtonContainer {
+            margin: 30px 0;
+            min-height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .console-log {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .console-log .log-entry {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-left: 3px solid transparent;
+        }
+
+        .console-log .log-entry.success {
+            border-left-color: #4caf50;
+        }
+
+        .console-log .log-entry.error {
+            border-left-color: #f44336;
+        }
+
+        .console-log .log-entry.info {
+            border-left-color: #2196f3;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 POC Google Pay via Tuna</h1>
+        <p class="subtitle">Prova de Conceito - Integração Tuna + Google Pay</p>
+
+        <div class="info-box">
+            <p><strong>⚠️ Nota:</strong> Esta é uma POC para teste visual. Configure a URL da API e o Restaurant ID abaixo.</p>
+        </div>
+
+        <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 15px;">
+                <strong>API URL:</strong>
+                <input type="text" id="apiUrl" value="http://multipedidos.beta" style="width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px;">
+            </label>
+            <label style="display: block; margin-bottom: 15px;">
+                <strong>Restaurant ID:</strong>
+                <input type="number" id="restaurantId" value="1" style="width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px;">
+            </label>
+            <label style="display: block; margin-bottom: 15px;">
+                <strong>Ambiente Tuna:</strong>
+                <select id="tunaEnvironment" style="width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px;">
+                    <option value="production">Produção</option>
+                    <option value="sandbox">Sandbox</option>
+                    <option value="auto">Automático (sem parâmetro)</option>
+                </select>
+            </label>
+            <button onclick="initTuna()" style="margin-top: 15px; padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
+                🚀 Carregar Google Pay
+            </button>
+        </div>
+
+        <div id="googlePayButtonContainer">
+            <div class="loading">
+                <p>Configure os dados acima e clique em "Carregar Google Pay"</p>
+            </div>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="console-log" id="consoleLog">
+            <div class="log-entry info">Console de logs aparecerá aqui...</div>
+        </div>
+    </div>
+
+    <!-- Tuna SDK v2 - Versão mais atualizada -->
+    <script src="https://storage.googleapis.com/tuna-statics/tuna-v2.js"></script>
+    <!-- CSS opcional da Tuna -->
+    <link rel="stylesheet" href="https://js.tuna.uy/css/components.css">
+
+    <script>
+        // Função auxiliar para logar no console e na UI
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            const consoleLog = document.getElementById('consoleLog');
+            consoleLog.insertBefore(logEntry, consoleLog.firstChild);
+            
+            // Manter apenas os últimos 10 logs
+            while (consoleLog.children.length > 10) {
+                consoleLog.removeChild(consoleLog.lastChild);
+            }
+
+            // Log também no console do navegador
+            if (type === 'error') {
+                console.error(message);
+            } else if (type === 'success') {
+                console.log('✅', message);
+            } else {
+                console.log('ℹ️', message);
+            }
+        }
+
+        // Função para atualizar status
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        // Configurações do Google Pay
+        const GOOGLE_PAY_CONFIG = {
+            merchantId: 'BCR2DN6TR7QYLIKK',
+            merchantName: 'Teste POC Tuna',
+            gatewayMerchantId: '78c30483-2a55-422e-98f1-b68f77fcaa70'
+        };
+
+        // Configuração da transação (valores de teste)
+        const TRANSACTION_INFO = {
+            totalPriceStatus: 'FINAL',
+            totalPrice: '1.00',
+            currencyCode: 'BRL'
+        };
+
+        // Função para obter sessionId da API
+        async function getSessionId(apiUrl, restaurantId) {
+            try {
+                log(`Fazendo requisição para: ${apiUrl}/restaurant/tuna/session`, 'info');
+                log(`Restaurant ID: ${restaurantId}`, 'info');
+                
+                const response = await fetch(`${apiUrl}/restaurant/tuna/session`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        restaurantId: parseInt(restaurantId)
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Erro HTTP ${response.status}: ${errorText || response.statusText}`);
+                }
+
+                const data = await response.json();
+                log('Resposta da API recebida: ' + JSON.stringify(data), 'success');
+                
+                if (data.sessionId) {
+                    log(`✅ SessionId obtido: ${data.sessionId}`, 'success');
+                    return data.sessionId;
+                } else {
+                    throw new Error('SessionId não encontrado na resposta da API');
+                }
+            } catch (error) {
+                log(`❌ Erro ao obter sessionId: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // Aguardar o SDK da Tuna carregar
+        async function initTuna() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const restaurantId = document.getElementById('restaurantId').value.trim();
+            const tunaEnvironment = document.getElementById('tunaEnvironment').value;
+            
+            if (!apiUrl || !restaurantId) {
+                updateStatus('❌ Por favor, preencha a URL da API e o Restaurant ID', 'error');
+                return;
+            }
+
+            // Limpar logs anteriores
+            document.getElementById('consoleLog').innerHTML = '';
+            updateStatus('', '');
+            
+            const container = document.getElementById('googlePayButtonContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Obtendo sessionId da API...</p></div>';
+            
+            log('Iniciando processo de carregamento do Google Pay...', 'info');
+            try {
+                // Obter sessionId da API
+                const SESSION_ID = await getSessionId(apiUrl, restaurantId);
+                
+                // Verificar se Tuna SDK está disponível
+                log('Verificando se Tuna SDK está disponível...', 'info');
+                
+                if (typeof Tuna === 'undefined') {
+                    throw new Error('Tuna SDK não foi carregado. Verifique se o script foi carregado corretamente.');
+                }
+
+                log('Tuna SDK carregado com sucesso!', 'success');
+                log(`Inicializando Tuna com sessionId real: ${SESSION_ID}`, 'info');
+
+                // Tentar diferentes formas de inicialização baseado no ambiente selecionado
+                let tuna;
+                
+                if (tunaEnvironment === 'auto') {
+                    // Tentar primeiro sem parâmetro de ambiente (o sessionId pode indicar o ambiente)
+                    try {
+                        tuna = Tuna(SESSION_ID);
+                        log('Tuna inicializado com: Tuna(sessionId) - ambiente automático', 'success');
+                    } catch (e1) {
+                        log('Tentativa automática falhou, tentando com production...', 'info');
+                        try {
+                            tuna = Tuna(SESSION_ID, 'production');
+                            log('Tuna inicializado com: Tuna(sessionId, "production")', 'success');
+                        } catch (e2) {
+                            log('Tentativa com production falhou, tentando com sandbox...', 'info');
+                            try {
+                                tuna = Tuna(SESSION_ID, 'sandbox');
+                                log('Tuna inicializado com: Tuna(sessionId, "sandbox")', 'success');
+                            } catch (e3) {
+                                log('Todas as formas de inicialização falharam', 'error');
+                                throw e3;
+                            }
+                        }
+                    }
+                } else {
+                    // Usar o ambiente especificado pelo usuário
+                    try {
+                        tuna = Tuna(SESSION_ID, tunaEnvironment);
+                        log(`Tuna inicializado com: Tuna(sessionId, "${tunaEnvironment}")`, 'success');
+                    } catch (e1) {
+                        log(`Tentativa com ${tunaEnvironment} falhou, tentando sem parâmetro...`, 'info');
+                        try {
+                            tuna = Tuna(SESSION_ID);
+                            log('Tuna inicializado com: Tuna(sessionId) - sem ambiente', 'success');
+                        } catch (e2) {
+                            log('Todas as formas de inicialização falharam', 'error');
+                            throw e2;
+                        }
+                    }
+                }
+                
+                // Debug: inspecionar objeto tuna
+                log('Tipo do objeto tuna: ' + typeof tuna, 'info');
+                log('Métodos disponíveis: ' + Object.keys(tuna).join(', '), 'info');
+                log('useGooglePay existe? ' + (typeof tuna.useGooglePay === 'function' ? 'SIM' : 'NÃO'), 'info');
+                
+                // Listar todos os métodos disponíveis
+                const allMethods = Object.getOwnPropertyNames(tuna).filter(prop => typeof tuna[prop] === 'function');
+                if (allMethods.length > 0) {
+                    log('Métodos encontrados: ' + allMethods.join(', '), 'info');
+                }
+
+                // Configurar Google Pay
+                log('Configurando Google Pay...', 'info');
+                
+                // Objeto de configuração conforme código fonte da Tuna
+                // A Tuna espera: cardAuthMethods e cardNetworks (obrigatórios)
+                // E opcionalmente: merchantId, merchantName e gatewayMerchantId
+                const googlePayMerchantInfo = {
+                    // Propriedades obrigatórias (encontradas no código fonte)
+                    cardAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
+                    cardNetworks: ['VISA', 'MASTERCARD', 'AMEX'],
+                    // Propriedades opcionais do Google Pay
+                    merchantId: GOOGLE_PAY_CONFIG.merchantId,
+                    merchantName: GOOGLE_PAY_CONFIG.merchantName,
+                    // Gateway Merchant ID da Tuna (necessário para processar pagamentos)
+                    gatewayMerchantId: GOOGLE_PAY_CONFIG.gatewayMerchantId
+                };
+                
+                log('⚠️ Nota sobre OR_BIBED_11:', 'info');
+                log('Este erro geralmente indica problema na configuração do gateway.', 'info');
+                log('Verifique se:', 'info');
+                log('1. O gatewayMerchantId está correto: ' + GOOGLE_PAY_CONFIG.gatewayMerchantId, 'info');
+                log('2. O merchantId do Google está correto: ' + GOOGLE_PAY_CONFIG.merchantId, 'info');
+                log('3. A conta Google Pay está aprovada para produção', 'info');
+                log('4. O gatewayMerchantId está configurado corretamente na conta Tuna', 'info');
+                
+                log('Configuração do Google Pay (merchantInfo): ' + JSON.stringify(googlePayMerchantInfo, null, 2), 'info');
+                log('Verificando propriedades obrigatórias...', 'info');
+                log('- cardAuthMethods: ' + (googlePayMerchantInfo.cardAuthMethods ? '✅ (' + JSON.stringify(googlePayMerchantInfo.cardAuthMethods) + ')' : '❌'), 'info');
+                log('- cardNetworks: ' + (googlePayMerchantInfo.cardNetworks ? '✅ (' + JSON.stringify(googlePayMerchantInfo.cardNetworks) + ')' : '❌'), 'info');
+                log('- merchantId: ' + (googlePayMerchantInfo.merchantId ? '✅ (' + googlePayMerchantInfo.merchantId + ')' : '⚠️ (opcional)'), 'info');
+                log('- merchantName: ' + (googlePayMerchantInfo.merchantName ? '✅ (' + googlePayMerchantInfo.merchantName + ')' : '⚠️ (opcional)'), 'info');
+                
+                // Verificar se as propriedades obrigatórias estão presentes
+                if (!googlePayMerchantInfo.cardAuthMethods || !Array.isArray(googlePayMerchantInfo.cardAuthMethods) || googlePayMerchantInfo.cardAuthMethods.length === 0) {
+                    throw new Error('cardAuthMethods é obrigatório e deve ser um array não vazio');
+                }
+                if (!googlePayMerchantInfo.cardNetworks || !Array.isArray(googlePayMerchantInfo.cardNetworks) || googlePayMerchantInfo.cardNetworks.length === 0) {
+                    throw new Error('cardNetworks é obrigatório e deve ser um array não vazio');
+                }
+
+                // Callback de sucesso (obrigatório na v2)
+                // Na v2, não há callback de erro separado - erros devem ser tratados dentro do callback de sucesso
+                const onSuccess = (paymentData) => {
+                    try {
+                        log('✅ Pagamento processado com sucesso!', 'success');
+                        log(`Dados do pagamento: ${JSON.stringify(paymentData, null, 2)}`, 'success');
+                        updateStatus('✅ Pagamento processado! Verifique o console para detalhes.', 'success');
+                    } catch (error) {
+                        log(`❌ Erro ao processar pagamento: ${error?.message || JSON.stringify(error)}`, 'error');
+                        updateStatus(`❌ Erro: ${error?.message || 'Erro desconhecido'}`, 'error');
+                    }
+                };
+
+                // Renderizar botão do Google Pay
+                // Nova assinatura v2: useGooglePay(container, merchantInfo, onSuccess, validationGroup?, transactionInfo?, param6?)
+                // validationGroup pode ser string ou array de strings (opcional)
+                // transactionInfo é opcional
+                if (typeof tuna.useGooglePay === 'function') {
+                    log('Método useGooglePay encontrado (v2)! Renderizando botão...', 'success');
+                    
+                    // Log detalhado dos parâmetros que serão passados
+                    log('Parâmetros do useGooglePay (v2):', 'info');
+                    log('1. Container: #googlePayButtonContainer', 'info');
+                    log('2. merchantInfo: ' + JSON.stringify(googlePayMerchantInfo, null, 2), 'info');
+                    log('3. onSuccess: callback function', 'info');
+                    log('4. validationGroup: null (opcional)', 'info');
+                    log('5. transactionInfo: ' + JSON.stringify(TRANSACTION_INFO, null, 2), 'info');
+                    
+                    console.log('ENVIADO ISSO (v2)', {
+                        googlePayMerchantInfo,
+                        TRANSACTION_INFO
+                    });
+                    
+                    try {
+                        // Nova assinatura v2: useGooglePay(container, merchantInfo, onSuccess, validationGroup?, transactionInfo?)
+                        // validationGroup é opcional (pode ser null, string ou array)
+                        // transactionInfo é opcional
+                        log('Tentando renderizar com nova assinatura v2...', 'info');
+                        tuna.useGooglePay(
+                            '#googlePayButtonContainer',  // e: container selector
+                            googlePayMerchantInfo,          // t: merchantInfo
+                            onSuccess,                      // n: callback de sucesso (obrigatório)
+                            null,                           // r: validationGroup (opcional, null)
+                            TRANSACTION_INFO                // a: transactionInfo (opcional)
+                        );
+                        log('✅ Botão Google Pay renderizado com sucesso (v2)!', 'success');
+                    } catch (apiError1) {
+                        log('Erro com transactionInfo: ' + apiError1.message, 'error');
+                        log('Tentando sem transactionInfo...', 'info');
+                        try {
+                            // Tentar sem transactionInfo
+                            tuna.useGooglePay(
+                                '#googlePayButtonContainer',
+                                googlePayMerchantInfo,
+                                onSuccess,
+                                null  // validationGroup
+                            );
+                            log('✅ Botão Google Pay renderizado sem transactionInfo (v2)!', 'success');
+                        } catch (apiError2) {
+                            log('Erro sem transactionInfo: ' + apiError2.message, 'error');
+                            log('Tentando apenas com parâmetros obrigatórios...', 'info');
+                            try {
+                                // Tentar apenas com parâmetros obrigatórios
+                                tuna.useGooglePay(
+                                    '#googlePayButtonContainer',
+                                    googlePayMerchantInfo,
+                                    onSuccess
+                                );
+                                log('✅ Botão Google Pay renderizado apenas com parâmetros obrigatórios (v2)!', 'success');
+                            } catch (apiError3) {
+                                log('❌ Erro em todas as tentativas: ' + apiError3.message, 'error');
+                                throw apiError3;
+                            }
+                        }
+                    }
+                } else {
+                    // Método não encontrado
+                    const errorMsg = 'Método useGooglePay não encontrado no objeto tuna. Verifique o console para ver os métodos disponíveis.';
+                    log(errorMsg, 'error');
+                    log('Objeto tuna completo: ' + JSON.stringify(tuna, null, 2), 'error');
+                    updateStatus('❌ ' + errorMsg, 'error');
+                    throw new Error(errorMsg);
+                }
+
+                updateStatus('✅ Botão Google Pay carregado. Clique para testar!', 'success');
+
+                // Remover loading
+                const loadingDiv = document.querySelector('.loading');
+                if (loadingDiv) {
+                    loadingDiv.style.display = 'none';
+                }
+            } catch (error) {
+                log(`❌ Erro geral: ${error.message}`, 'error');
+                updateStatus(`❌ Erro: ${error.message}`, 'error');
+                container.innerHTML = `<p style="color: red;">Erro: ${error.message}</p>`;
+                console.error('Erro completo:', error);
+            }
+        }
+
+        // Não inicializar automaticamente - aguardar clique do usuário
+    </script>
+</body>
+</html>
+
